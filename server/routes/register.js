@@ -78,9 +78,14 @@ router.post('/init', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('[register/init]', err);
-    return res.status(500).json({ status: 'error', message: ERRORS.SERVER_ERROR });
-  }
+  console.error('[register/init FULL ERROR]', err);
+
+  return res.status(500).json({
+    status: 'error',
+    message: err.message, // 👈 THIS is the key change
+    stack: err.stack      // 👈 optional but useful
+  });
+}
 });
 
 /**

@@ -49,7 +49,7 @@ export const FACE_MATCH_THRESHOLD = 0.45;
 // TOTP settings
 export const TOTP_CONFIG = {
   issuer: 'DejaView',
-  algorithm: 'SHA1',
+  algorithm: 'sha1',
   digits: 6,
   period: 30,
   window: 0, // strict — only current 30s window accepted
