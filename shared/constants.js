@@ -44,7 +44,7 @@ export const ERRORS = {
 };
 
 // Face verification threshold (0-1, lower = stricter)
-export const FACE_MATCH_THRESHOLD = 0.45;
+export const FACE_MATCH_THRESHOLD = 0.55;
 
 // TOTP settings
 export const TOTP_CONFIG = {

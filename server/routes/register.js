@@ -139,7 +139,7 @@ router.post('/verify-totp', (req, res) => {
  *
  * Body: { userId, faceDescriptor: number[] }
  */
-router.post('/save-face', (req, res) => {
+router.post('/save-face' , (req, res) => {
   const { userId, faceDescriptor } = req.body;
 
   if (!userId || !faceDescriptor) {
@@ -147,6 +147,15 @@ router.post('/save-face', (req, res) => {
   }
 
   if (!Array.isArray(faceDescriptor) || faceDescriptor.length !== 128) {
+    // 🔥 Reject weak / bad face descriptors
+const variance = faceDescriptor.reduce((sum, v) => sum + v * v, 0) / faceDescriptor.length;
+
+if (variance < 0.01) {
+  return res.status(400).json({
+    status: 'error',
+    message: 'Face too unclear — please face the camera directly.'
+  });
+}
     return res.status(400).json({
       status: 'error',
       message: 'faceDescriptor must be an array of 128 numbers.',

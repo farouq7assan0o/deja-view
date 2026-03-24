@@ -27,7 +27,7 @@ const headMoveTicksRef = useRef(0);
   const [hint, setHint]     = useState('');
   const [errMsg, setErrMsg] = useState('');
 
-  const CONFIRM_TICKS = 5;   // 5 × 200ms = 1s of confirmed forward-facing
+  const CONFIRM_TICKS = 10;   // 10 × 200ms = 2s of confirmed forward-facing
   const SCORE_THRESH  = 0.3;
   // Eye symmetry: ratio of left-eye-width to right-eye-width must be close to 1
   // If you're looking away, one eye appears much narrower
@@ -94,6 +94,13 @@ const headMoveTicksRef = useRef(0);
         const result = await faceapi
           .detectSingleFace(vid, opts)
           .withFaceLandmarks();
+
+          if (result.detection.score < 0.85) {
+  ticksRef.current = 0;
+  setTicks(0);
+  setHint('Move closer — face not clear');
+  return;
+}
 
         if (!result) {
           ticksRef.current = 0;
@@ -301,7 +308,7 @@ if (headMoveTicksRef.current >= 3) {
 
   // ── Capture descriptor ─────────────────────────────────────
   async function doCapture(vid) {
-    for (const size of [224, 320]) {
+    for (const size of [320, 416]) {
       try {
         const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: size, scoreThreshold: SCORE_THRESH });
         const d = await faceapi.detectSingleFace(vid, opts).withFaceLandmarks().withFaceDescriptor();
