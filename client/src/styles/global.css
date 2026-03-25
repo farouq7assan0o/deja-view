@@ -704,3 +704,125 @@ input::placeholder { color: var(--text-dim); }
 }
 
 .muted { color: var(--text-muted); font-size: 0.875rem; }
+
+/* ── ImageCapture (live photo) ── */
+.image-capture { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.capture-idle {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  cursor: pointer;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--transition), background var(--transition);
+}
+.capture-idle:hover { border-color: var(--accent); background: var(--bg-hover); }
+
+.capture-idle-inner {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.35rem; color: var(--text-muted); font-size: 0.875rem;
+}
+.capture-cam-icon { font-size: 1.75rem; }
+.capture-sub { font-size: 0.75rem; color: var(--text-dim); }
+
+.capture-viewfinder {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4/3;
+  border: 1.5px solid var(--border);
+}
+
+.capture-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1);
+}
+
+.capture-loading-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.5);
+}
+
+.capture-controls {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+}
+
+/* Camera shutter button */
+.btn-capture {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 3px solid #fff;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform var(--transition), background var(--transition);
+}
+.btn-capture:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
+.btn-capture:active { transform: scale(0.95); }
+.btn-capture-inner {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.capture-hint-overlay {
+  position: absolute; top: 10px; left: 0; right: 0;
+  display: flex; justify-content: center;
+}
+.capture-hint-overlay span {
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+.capture-preview-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1.5px solid var(--success);
+}
+.capture-preview {
+  width: 100%; display: block;
+  aspect-ratio: 4/3; object-fit: cover;
+}
+.capture-preview-overlay {
+  position: absolute; inset: 0;
+  background: rgba(34,197,94,0.15);
+  display: flex; align-items: center; justify-content: center;
+}
+.capture-check {
+  background: rgba(0,0,0,0.6);
+  color: #86efac;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+}
+.capture-retake {
+  position: absolute; bottom: 10px; right: 10px;
+}
+
+/* ── Login auto-hash card ── */
+.photo-key-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background: rgba(34,197,94,0.07);
+  border: 1px solid rgba(34,197,94,0.2);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+}
+.photo-key-icon { font-size: 1.4rem; flex-shrink: 0; }
+.photo-key-info { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; }
+.photo-key-info strong { font-size: 0.875rem; color: var(--text); }
+.photo-key-info span   { font-size: 0.775rem; color: var(--text-muted); }
