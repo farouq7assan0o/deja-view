@@ -1,16 +1,8 @@
-node_modules/
 dist/
 .env
-*.sqlite
-*.sqlite-wal
-*.sqlite-shm
-client/public/models/*.bin
-client/public/models/*manifest.json
 .DS_Store
 *.log
 *.exe 
-client/public/models/ 
 *.exe 
 node_modules/ 
 .env 
-client/public/models/ 
