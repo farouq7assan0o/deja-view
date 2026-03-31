@@ -1,8 +1,22 @@
+# Build output
 dist/
+
+# Dependencies
+node_modules/
+
+# Environment variables
 .env
-.DS_Store
+
+# Logs
 *.log
-*.exe 
-*.exe 
-node_modules/ 
-.env 
+
+# OS files
+.DS_Store
+
+# Executables
+*.exe
+
+# Database (important for your case)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
