@@ -1,4 +1,4 @@
-# Déjà View 🔐
+# Déjà View 
 ### Shoulder-Surfing Resistant Three-Factor Authentication System
 **HTU Jordan — Capstone Project (GP2) | Farouq Hassan, Tama Refaey, Abdelrahman Melhem**
 
