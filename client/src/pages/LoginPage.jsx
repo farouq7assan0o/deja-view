@@ -5,33 +5,30 @@ import ImagePicker from '../components/ImagePicker.jsx';
 import WebcamCapture from '../components/WebcamCapture.jsx';
 import Alert from '../components/Alert.jsx';
 import { api } from '../utils/api.js';
+import { computeImageResponse } from '../utils/imageHash.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { loadRegistrationHash } from '../utils/capturedImageStore.js';
 
 const STEPS = ['Photo key', 'Face scan', 'Authenticator'];
 
 export default function LoginPage() {
-  const navigate      = useNavigate();
+  const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login }     = useAuth();
+  const { login }      = useAuth();
 
-  const [step, setStep]         = useState(0);
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [step, setStep]               = useState(0);
+  const [error, setError]             = useState('');
+  const [loading, setLoading]         = useState(false);
   const [partialToken, setPartialToken] = useState('');
 
-  // Step 0
-  const [username, setUsername]     = useState('');
-  const [imageHash, setImageHash]   = useState('');
-  const [autoHash, setAutoHash]     = useState(''); // loaded from localStorage
-  const [hashSource, setHashSource] = useState(''); // 'auto' | 'upload'
-
-  // Step 2
-  const [totpCode, setTotpCode] = useState('');
+  const [username, setUsername]   = useState('');
+  const [imageHash, setImageHash] = useState('');
+  const [autoHash, setAutoHash]   = useState('');
+  const [hashSource, setHashSource] = useState('');
+  const [totpCode, setTotpCode]   = useState('');
 
   const clearError = () => setError('');
 
-  // When username changes, try to load their saved hash from this device
   useEffect(() => {
     if (!username) { setAutoHash(''); setHashSource(''); return; }
     const saved = loadRegistrationHash(username);
@@ -46,7 +43,7 @@ export default function LoginPage() {
     }
   }, [username]);
 
-  // ── Step 0: verify image ─────────────────────────────────
+  // ── Step 0: challenge-response image verification ─────────
   async function handleImageVerify(e) {
     e.preventDefault();
     clearError();
@@ -55,7 +52,17 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const data = await api.loginVerifyImage(username, imageHash);
+      // 1. Fetch a one-time nonce from the server
+      const { nonce } = await api.getImageNonce(username);
+
+      // 2. Compute HMAC-SHA256(imageHash, nonce) — in the browser
+      //    This is a challenge-response: the server issued the challenge (nonce),
+      //    we respond with proof that we have the image (HMAC using imageHash as the key data)
+      const imageResponse = await computeImageResponse(imageHash, nonce);
+
+      // 3. Send the HMAC response — NOT the raw hash
+      //    Even if intercepted, this value is useless: the nonce is already consumed
+      const data = await api.loginVerifyImage(username, imageResponse);
       setPartialToken(data.partialToken);
       setStep(1);
     } catch (err) {
@@ -65,7 +72,7 @@ export default function LoginPage() {
     }
   }
 
-  // ── Step 1: face ─────────────────────────────────────────
+  // ── Step 1: face ──────────────────────────────────────────
   async function handleFaceCaptured(descriptor) {
     clearError();
     setLoading(true);
@@ -80,7 +87,7 @@ export default function LoginPage() {
     }
   }
 
-  // ── Step 2: TOTP ─────────────────────────────────────────
+  // ── Step 2: TOTP ──────────────────────────────────────────
   async function handleTotpVerify(e) {
     e.preventDefault();
     clearError();
@@ -112,7 +119,6 @@ export default function LoginPage() {
         <StepIndicator steps={STEPS} current={step} />
         <Alert type="error" message={error} onClose={clearError} />
 
-        {/* ── STEP 0: username + photo key ── */}
         {step === 0 && (
           <form onSubmit={handleImageVerify} className="auth-form">
             <div className="form-group">
@@ -124,7 +130,6 @@ export default function LoginPage() {
 
             <div className="form-divider"><span>Factor 1 — Photo key</span></div>
 
-            {/* Auto-loaded from this device */}
             {hashSource === 'auto' && (
               <div className="photo-key-auto">
                 <span className="photo-key-icon">🔑</span>
@@ -136,7 +141,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Not on this device — must upload the saved photo */}
             {username && !autoHash && (
               <div className="auth-form">
                 <p className="step-description">
@@ -152,7 +156,7 @@ export default function LoginPage() {
             )}
 
             {!username && (
-              <p className="muted" style={{fontSize:'0.8rem', textAlign:'center'}}>
+              <p className="muted" style={{fontSize:'0.8rem',textAlign:'center'}}>
                 Enter your username to load your photo key
               </p>
             )}
@@ -166,7 +170,6 @@ export default function LoginPage() {
           </form>
         )}
 
-        {/* ── STEP 1: face ── */}
         {step === 1 && (
           <div className="auth-form">
             <p className="step-description">
@@ -178,7 +181,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* ── STEP 2: TOTP ── */}
         {step === 2 && (
           <form onSubmit={handleTotpVerify} className="auth-form">
             <p className="step-description">

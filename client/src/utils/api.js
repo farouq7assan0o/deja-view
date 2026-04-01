@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:3001/api';
+const BASE = '/api';
 
 async function request(method, path, body, token) {
   const headers = { 'Content-Type': 'application/json' };
@@ -11,17 +11,12 @@ async function request(method, path, body, token) {
   });
 
   const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.message || `HTTP ${res.status}`);
-  }
-
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
   return data;
 }
 
-// Registration
 export const api = {
-  // --- REGISTER ---
+  // ── REGISTER ──────────────────────────────────────────────
   registerInit: (username, password, imageHash) =>
     request('POST', '/register/init', { username, password, imageHash }),
 
@@ -31,9 +26,14 @@ export const api = {
   registerSaveFace: (userId, faceDescriptor) =>
     request('POST', '/register/save-face', { userId, faceDescriptor }),
 
-  // --- LOGIN ---
-  loginVerifyImage: (username, imageHash) =>
-    request('POST', '/login/verify-image', { username, imageHash }),
+  // ── LOGIN ─────────────────────────────────────────────────
+  // Step 0: get a one-time nonce from the server before sending image proof
+  getImageNonce: (username) =>
+    request('GET', `/login/nonce?username=${encodeURIComponent(username)}`),
+
+  // Step 1: send HMAC-SHA256(imageHash, nonce) — NOT the raw hash
+  loginVerifyImage: (username, imageResponse) =>
+    request('POST', '/login/verify-image', { username, imageResponse }),
 
   loginVerifyFace: (faceDescriptor, partialToken) =>
     request('POST', '/login/verify-face', { faceDescriptor }, partialToken),
@@ -41,13 +41,12 @@ export const api = {
   loginVerifyTotp: (totpCode, partialToken) =>
     request('POST', '/login/verify-totp', { totpCode }, partialToken),
 
-  // --- USER ---
+  // ── USER ──────────────────────────────────────────────────
   getMe: (sessionToken) =>
     request('GET', '/user/me', null, sessionToken),
 
   getLoginHistory: (sessionToken) =>
     request('GET', '/user/login-history', null, sessionToken),
 
-  // --- HEALTH ---
   health: () => request('GET', '/health'),
 };
