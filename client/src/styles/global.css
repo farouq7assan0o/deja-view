@@ -826,3 +826,37 @@ input::placeholder { color: var(--text-dim); }
 .photo-key-info { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; }
 .photo-key-info strong { font-size: 0.875rem; color: var(--text); }
 .photo-key-info span   { font-size: 0.775rem; color: var(--text-muted); }
+
+/* ── ImageKey tabs ── */
+.image-key-wrap { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.image-key-tabs {
+  display: flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
+}
+
+.image-key-tab {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  transition: all var(--transition);
+}
+
+.image-key-tab:hover { color: var(--text); }
+
+.image-key-tab.active {
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}

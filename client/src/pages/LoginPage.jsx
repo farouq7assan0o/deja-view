@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import StepIndicator from '../components/StepIndicator.jsx';
-import ImagePicker from '../components/ImagePicker.jsx';
+import ImageKey from '../components/ImageKey.jsx';
 import WebcamCapture from '../components/WebcamCapture.jsx';
 import Alert from '../components/Alert.jsx';
 import { api } from '../utils/api.js';
@@ -145,12 +145,11 @@ export default function LoginPage() {
               <div className="auth-form">
                 <p className="step-description">
                   No saved photo found on this device.<br/>
-                  Upload your original registration photo file.
+                  Take a new photo or upload your original registration image.
                 </p>
-                <ImagePicker
-                  onHash={(h) => { setImageHash(h); setHashSource('upload'); }}
+                <ImageKey
+                  onHash={(h) => { setImageHash(h || ''); setHashSource('manual'); }}
                   onError={setError}
-                  label="Upload your registration photo"
                 />
               </div>
             )}

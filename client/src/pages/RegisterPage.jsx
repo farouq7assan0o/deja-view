@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import StepIndicator from '../components/StepIndicator.jsx';
-import ImageCapture from '../components/ImageCapture.jsx';
+import ImageKey from '../components/ImageKey.jsx';
 import WebcamCapture from '../components/WebcamCapture.jsx';
 import Alert from '../components/Alert.jsx';
 import { api } from '../utils/api.js';
@@ -127,7 +127,7 @@ export default function RegisterPage() {
 
             <div className="form-divider"><span>Factor 1 — Live secret photo</span></div>
 
-            <ImageCapture
+            <ImageKey
               onHash={(h, dataUrl) => { setImageHash(h || ''); setImagePreview(dataUrl || ''); }}
               onError={setError}
             />
