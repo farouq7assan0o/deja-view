@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { startRegistration, browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import StepIndicator from '../components/StepIndicator.jsx';
-import ImageKey from '../components/ImageKey.jsx';
+import ImageCapture from '../components/ImageCapture.jsx';
+import ImagePicker from '../components/ImagePicker.jsx';
 import WebcamCapture from '../components/WebcamCapture.jsx';
 import Alert from '../components/Alert.jsx';
 import { api } from '../utils/api.js';
 import { saveRegistrationPhoto, saveRegistrationHash } from '../utils/capturedImageStore.js';
 
-const STEPS = ['Account', 'Live Photo', 'Face Scan', 'Authenticator'];
+const STEPS = ['Account', 'Face Scan', 'Authenticator', 'Passkey'];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -21,7 +23,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
 
-  // Step 1 — live photo
+  // Step 0 — photo
+  const [photoMode, setPhotoMode] = useState('upload'); // 'upload' | 'live'
   const [imageHash, setImageHash]       = useState('');
   const [imagePreview, setImagePreview] = useState('');
 
@@ -43,7 +46,7 @@ export default function RegisterPage() {
     if (!username || !password || !confirm) return setError('All fields are required.');
     if (password !== confirm) return setError('Passwords do not match.');
     if (password.length < 8) return setError('Password must be at least 8 characters.');
-    if (!imageHash) return setError('Please take your secret photo first.');
+    if (!imageHash) return setError('Please upload or take your secret photo first.');
 
     setLoading(true);
     try {
@@ -87,9 +90,35 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await api.registerVerifyTotp(userId, totpCode);
-      navigate('/login?registered=1');
+      // Show optional passkey step if browser supports it
+      if (browserSupportsWebAuthn()) {
+        setStep(4);
+      } else {
+        navigate('/login?registered=1');
+      }
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Step 4: Optional passkey registration ──────────────
+  async function handlePasskeySetup() {
+    clearError();
+    setLoading(true);
+    try {
+      const { options } = await api.passkeyRegisterOptions(userId);
+      const credential = await startRegistration({ optionsJSON: options });
+      await api.passkeyRegisterVerify(userId, credential);
+      navigate('/login?registered=1');
+    } catch (err) {
+      // User cancelled or device doesn't support it — that's fine
+      if (err.name === 'NotAllowedError') {
+        setError('Passkey setup was cancelled. You can set it up later.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -125,12 +154,33 @@ export default function RegisterPage() {
                 placeholder="Repeat password" autoComplete="new-password" />
             </div>
 
-            <div className="form-divider"><span>Factor 1 — Live secret photo</span></div>
+            <div className="form-divider"><span>Factor 1 — Secret photo</span></div>
 
-            <ImageKey
-              onHash={(h, dataUrl) => { setImageHash(h || ''); setImagePreview(dataUrl || ''); }}
-              onError={setError}
-            />
+            <div className="biometric-toggle" style={{marginBottom:'0.75rem'}}>
+              <button type="button"
+                className={`toggle-btn ${photoMode === 'upload' ? 'active' : ''}`}
+                onClick={() => { setPhotoMode('upload'); setImageHash(''); setImagePreview(''); }}>
+                Upload from device
+              </button>
+              <button type="button"
+                className={`toggle-btn ${photoMode === 'live' ? 'active' : ''}`}
+                onClick={() => { setPhotoMode('live'); setImageHash(''); setImagePreview(''); }}>
+                Take live photo
+              </button>
+            </div>
+
+            {photoMode === 'upload' ? (
+              <ImagePicker
+                onHash={(h, file) => { setImageHash(h || ''); setImagePreview(''); }}
+                onError={setError}
+                label="Choose your secret image"
+              />
+            ) : (
+              <ImageCapture
+                onHash={(h, dataUrl) => { setImageHash(h || ''); setImagePreview(dataUrl || ''); }}
+                onError={setError}
+              />
+            )}
 
             <button type="submit" className="btn btn-primary btn-full"
               disabled={loading || !imageHash}>
@@ -177,9 +227,34 @@ export default function RegisterPage() {
             </div>
             <button type="submit" className="btn btn-primary btn-full"
               disabled={loading || totpCode.length !== 6}>
-              {loading ? 'Verifying…' : 'Complete registration →'}
+              {loading ? 'Verifying…' : 'Continue →'}
             </button>
           </form>
+        )}
+
+        {/* ── STEP 4: Optional passkey ── */}
+        {step === 4 && (
+          <div className="auth-form">
+            <p className="step-description">
+              <strong>Optional — Phone passkey</strong><br />
+              Set up Face ID, Touch ID, or fingerprint on your phone so you can skip the webcam face scan when logging in.
+            </p>
+            <div className="passkey-promo">
+              <span className="passkey-icon">📱</span>
+              <div className="passkey-info">
+                <strong>Use your phone's biometric</strong>
+                <span>Face ID, fingerprint, or screen lock</span>
+              </div>
+            </div>
+            <button className="btn btn-primary btn-full"
+              onClick={handlePasskeySetup} disabled={loading}>
+              {loading ? 'Setting up…' : 'Set up passkey'}
+            </button>
+            <button className="btn btn-ghost btn-full"
+              onClick={() => navigate('/login?registered=1')} disabled={loading}>
+              Skip for now
+            </button>
+          </div>
         )}
       </div>
     </div>

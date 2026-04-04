@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node --check server/routes/passkey.js)",
+      "Bash(node --check server/index.js)",
+      "Bash(node --check server/routes/login.js)",
+      "Bash(node --check server/routes/user.js)",
+      "Bash(node --check client/src/utils/api.js)",
+      "Bash(node --check client/src/pages/RegisterPage.jsx)",
+      "Bash(node --check client/src/pages/LoginPage.jsx)"
+    ]
+  }
+}

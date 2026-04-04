@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/me', requireAuth, (req, res) => {
   const db = getDB();
   const user = db.prepare(
-    'SELECT id, username, totp_enabled, face_descriptor IS NOT NULL as has_face, created_at, last_login FROM users WHERE id = ?'
+    'SELECT id, username, totp_enabled, face_descriptor IS NOT NULL as has_face, passkey_enabled as has_passkey, created_at, last_login FROM users WHERE id = ?'
   ).get(req.user.userId);
 
   if (!user) {
@@ -28,6 +28,7 @@ router.get('/me', requireAuth, (req, res) => {
         imageHash: true, // always enrolled at registration
         face: !!user.has_face,
         totp: !!user.totp_enabled,
+        passkey: !!user.has_passkey,
       },
       createdAt: user.created_at,
       lastLogin: user.last_login,

@@ -7,6 +7,7 @@ import path from 'path';
 import registerRoutes from './routes/register.js';
 import loginRoutes from './routes/login.js';
 import userRoutes from './routes/user.js';
+import passkeyRoutes from './routes/passkey.js';
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ if (process.env.NODE_ENV !== 'production') {
 app.use('/api/register', registerRoutes);
 app.use('/api/login', loginRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/passkey', passkeyRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

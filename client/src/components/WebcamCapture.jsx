@@ -95,17 +95,17 @@ const headMoveTicksRef = useRef(0);
           .detectSingleFace(vid, opts)
           .withFaceLandmarks();
 
-          if (result.detection.score < 0.85) {
-  ticksRef.current = 0;
-  setTicks(0);
-  setHint('Move closer — face not clear');
-  return;
-}
-
-        if (!result) {
+          if (!result) {
           ticksRef.current = 0;
           setTicks(0);
           setHint('Look at the camera');
+          return;
+        }
+
+        if (result.detection.score < 0.85) {
+          ticksRef.current = 0;
+          setTicks(0);
+          setHint('Move closer — face not clear');
           return;
         }
 

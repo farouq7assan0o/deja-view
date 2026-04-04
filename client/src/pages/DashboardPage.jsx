@@ -10,9 +10,8 @@ export default function DashboardPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
 
   useEffect(() => {
-    if (!sessionToken) { navigate('/login'); return; }
     refreshUser();
-  }, [sessionToken]);
+  }, []);
 
   useEffect(() => {
     if (!sessionToken) return;
@@ -64,6 +63,12 @@ export default function DashboardPage() {
             label="Authenticator"
             description="TOTP one-time code"
             active={factors.totp}
+          />
+          <FactorCard
+            icon="📱"
+            label="Phone passkey"
+            description="Face ID / fingerprint"
+            active={factors.passkey}
           />
         </section>
 

@@ -1,7 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomBytes, createHmac } from 'crypto';
 import { authenticator } from 'otplib';
 import getDB from '../db/database.js';
 import { rateLimitLogin } from '../middleware/auth.js';
@@ -25,31 +24,6 @@ function isCodeUsed(userId, code) {
   return true;
 }
 
-/**
- * Nonce store for challenge-response image verification.
- * Server issues a random nonce → client computes HMAC(imageHash, nonce) → server verifies.
- * This means intercepting network traffic gives an attacker a single-use value
- * that is useless without the original image.
- * Key: username, Value: { nonce, expires }
- */
-const nonceStore = new Map();
-const NONCE_TTL = 2 * 60 * 1000; // 2 minutes
-
-function issueNonce(username) {
-  const nonce = randomBytes(32).toString('hex');
-  nonceStore.set(username.toLowerCase(), { nonce, expires: Date.now() + NONCE_TTL });
-  return nonce;
-}
-
-function consumeNonce(username) {
-  const key = username.toLowerCase();
-  const entry = nonceStore.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expires) { nonceStore.delete(key); return null; }
-  nonceStore.delete(key); // single-use
-  return entry.nonce;
-}
-
 // Euclidean distance between two face descriptors
 function faceDistance(a, b) {
   if (a.length !== b.length) return Infinity;
@@ -61,32 +35,6 @@ function faceDistance(a, b) {
 }
 
 /**
- * GET /api/login/nonce?username=xxx
- * Issues a one-time random nonce for challenge-response image verification.
- * Client uses this to compute: HMAC-SHA256(imageHash, nonce) before sending.
- * Nonce expires in 2 minutes and is single-use.
- */
-router.get('/nonce', rateLimitLogin(15, 5 * 60 * 1000), (req, res) => {
-  const { username } = req.query;
-  if (!username) {
-    return res.status(400).json({ status: 'error', message: 'username required' });
-  }
-
-  // Check user exists (don't leak whether they exist — same response either way)
-  const db = getDB();
-  const user = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-
-  const nonce = issueNonce(username);
-
-  return res.json({
-    status: 'success',
-    nonce,
-    // Tell the client which HMAC algorithm to use
-    algorithm: 'sha256',
-  });
-});
-
-/**
  * POST /api/login/verify-image
  * Step 1: Verify username + image hash.
  * Returns a partial session ID to carry through remaining steps.
@@ -94,38 +42,24 @@ router.get('/nonce', rateLimitLogin(15, 5 * 60 * 1000), (req, res) => {
  * Body: { username, imageHash }
  */
 router.post('/verify-image', rateLimitLogin(10, 5 * 60 * 1000), (req, res) => {
-  const { username, imageResponse } = req.body;
+  const { username, imageHash } = req.body;
 
-  if (!username || !imageResponse) {
+  if (!username || !imageHash) {
     return res.status(400).json({ status: 'error', message: ERRORS.MISSING_FIELDS });
   }
 
-  // imageResponse must be a 64-char hex HMAC
-  if (!/^[a-f0-9]{64}$/.test(imageResponse)) {
-    return res.status(400).json({ status: 'error', message: 'Invalid image response format.' });
-  }
-
-  // Consume the nonce — single use, 2 min TTL
-  const nonce = consumeNonce(username);
-  if (!nonce) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'No valid nonce found. Request a new nonce first.',
-    });
+  if (!/^[a-f0-9]{64}$/.test(imageHash)) {
+    return res.status(400).json({ status: 'error', message: 'Invalid image hash format.' });
   }
 
   const db = getDB();
   const user = db.prepare(
-    'SELECT id, username, image_hash, totp_enabled, face_descriptor FROM users WHERE username = ?'
+    'SELECT id, username, image_hash, totp_enabled, face_descriptor, passkey_enabled FROM users WHERE username = ?'
   ).get(username);
 
-  // Compute expected response: HMAC-SHA256(stored_image_hash, nonce)
-  // If user doesn't exist, use a dummy hash to prevent timing attacks
+  // Constant-time-style: always hash compare even if user not found
   const storedHash = user?.image_hash || 'a'.repeat(64);
-  const expectedResponse = createHmac('sha256', nonce).update(storedHash).digest('hex');
-
-  // Constant-time comparison
-  const match = user && expectedResponse === imageResponse;
+  const match = user && storedHash === imageHash;
 
   if (!match) {
     db.prepare(
@@ -147,6 +81,7 @@ router.post('/verify-image', rateLimitLogin(10, 5 * 60 * 1000), (req, res) => {
     message: 'Image hash verified.',
     partialToken,
     hasFace: !!user.face_descriptor,
+    hasPasskey: !!user.passkey_enabled,
   });
 });
 

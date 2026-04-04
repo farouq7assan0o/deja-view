@@ -5,18 +5,18 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [sessionToken, setSessionToken] = useState(
-    () => sessionStorage.getItem('dv_session') || null
+    () => localStorage.getItem('dv_session') || null
   );
   const [user, setUser] = useState(null);
 
   const login = useCallback((token, userData) => {
-    sessionStorage.setItem('dv_session', token);
+    localStorage.setItem('dv_session', token);
     setSessionToken(token);
     setUser(userData);
   }, []);
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem('dv_session');
+    localStorage.removeItem('dv_session');
     setSessionToken(null);
     setUser(null);
   }, []);
@@ -26,8 +26,9 @@ export function AuthProvider({ children }) {
     try {
       const data = await api.getMe(sessionToken);
       setUser(data.user);
-    } catch {
-      logout();
+    } catch (err) {
+      // Only logout on auth failure (401), not network/server errors
+      if (err.status === 401) logout();
     }
   }, [sessionToken, logout]);
 

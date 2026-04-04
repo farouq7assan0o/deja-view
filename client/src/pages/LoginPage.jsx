@@ -1,34 +1,44 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { startAuthentication, browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import StepIndicator from '../components/StepIndicator.jsx';
-import ImageKey from '../components/ImageKey.jsx';
+import ImagePicker from '../components/ImagePicker.jsx';
+import ImageCapture from '../components/ImageCapture.jsx';
 import WebcamCapture from '../components/WebcamCapture.jsx';
 import Alert from '../components/Alert.jsx';
 import { api } from '../utils/api.js';
-import { computeImageResponse } from '../utils/imageHash.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { loadRegistrationHash } from '../utils/capturedImageStore.js';
 
-const STEPS = ['Photo key', 'Face scan', 'Authenticator'];
+const STEPS = ['Photo key', 'Biometric', 'Authenticator'];
 
 export default function LoginPage() {
-  const navigate       = useNavigate();
+  const navigate      = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login }      = useAuth();
+  const { login }     = useAuth();
 
-  const [step, setStep]               = useState(0);
-  const [error, setError]             = useState('');
-  const [loading, setLoading]         = useState(false);
+  const [step, setStep]         = useState(0);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
   const [partialToken, setPartialToken] = useState('');
 
-  const [username, setUsername]   = useState('');
-  const [imageHash, setImageHash] = useState('');
-  const [autoHash, setAutoHash]   = useState('');
-  const [hashSource, setHashSource] = useState('');
-  const [totpCode, setTotpCode]   = useState('');
+  // Step 0
+  const [username, setUsername]     = useState('');
+  const [imageHash, setImageHash]   = useState('');
+  const [autoHash, setAutoHash]     = useState(''); // loaded from localStorage
+  const [hashSource, setHashSource] = useState(''); // 'auto' | 'upload' | 'live'
+  const [photoMode, setPhotoMode]  = useState('upload'); // 'upload' | 'live' (for new device)
+
+  // Step 1
+  const [hasPasskey, setHasPasskey] = useState(false);
+  const [usePasskey, setUsePasskey] = useState(false);
+
+  // Step 2
+  const [totpCode, setTotpCode] = useState('');
 
   const clearError = () => setError('');
 
+  // When username changes, try to load their saved hash from this device
   useEffect(() => {
     if (!username) { setAutoHash(''); setHashSource(''); return; }
     const saved = loadRegistrationHash(username);
@@ -43,27 +53,18 @@ export default function LoginPage() {
     }
   }, [username]);
 
-  // ── Step 0: challenge-response image verification ─────────
+  // ── Step 0: verify image ─────────────────────────────────
   async function handleImageVerify(e) {
     e.preventDefault();
     clearError();
     if (!username) return setError('Enter your username.');
-    if (!imageHash) return setError('No photo key found — please upload your registration photo.');
+    if (!imageHash) return setError('No photo key found — upload your registration photo or take a live one.');
 
     setLoading(true);
     try {
-      // 1. Fetch a one-time nonce from the server
-      const { nonce } = await api.getImageNonce(username);
-
-      // 2. Compute HMAC-SHA256(imageHash, nonce) — in the browser
-      //    This is a challenge-response: the server issued the challenge (nonce),
-      //    we respond with proof that we have the image (HMAC using imageHash as the key data)
-      const imageResponse = await computeImageResponse(imageHash, nonce);
-
-      // 3. Send the HMAC response — NOT the raw hash
-      //    Even if intercepted, this value is useless: the nonce is already consumed
-      const data = await api.loginVerifyImage(username, imageResponse);
+      const data = await api.loginVerifyImage(username, imageHash);
       setPartialToken(data.partialToken);
+      setHasPasskey(!!data.hasPasskey);
       setStep(1);
     } catch (err) {
       setError(err.message);
@@ -72,7 +73,7 @@ export default function LoginPage() {
     }
   }
 
-  // ── Step 1: face ──────────────────────────────────────────
+  // ── Step 1: face ─────────────────────────────────────────
   async function handleFaceCaptured(descriptor) {
     clearError();
     setLoading(true);
@@ -87,7 +88,28 @@ export default function LoginPage() {
     }
   }
 
-  // ── Step 2: TOTP ──────────────────────────────────────────
+  // ── Step 1 alt: passkey ──────────────────────────────────
+  async function handlePasskeyLogin() {
+    clearError();
+    setLoading(true);
+    try {
+      const { options } = await api.passkeyLoginOptions(partialToken);
+      const credential = await startAuthentication({ optionsJSON: options });
+      const data = await api.passkeyLoginVerify(credential, partialToken);
+      setPartialToken(data.partialToken);
+      setStep(2);
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        setError('Passkey was cancelled. Try again or use face scan.');
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Step 2: TOTP ─────────────────────────────────────────
   async function handleTotpVerify(e) {
     e.preventDefault();
     clearError();
@@ -119,6 +141,7 @@ export default function LoginPage() {
         <StepIndicator steps={STEPS} current={step} />
         <Alert type="error" message={error} onClose={clearError} />
 
+        {/* ── STEP 0: username + photo key ── */}
         {step === 0 && (
           <form onSubmit={handleImageVerify} className="auth-form">
             <div className="form-group">
@@ -130,6 +153,7 @@ export default function LoginPage() {
 
             <div className="form-divider"><span>Factor 1 — Photo key</span></div>
 
+            {/* Auto-loaded from this device */}
             {hashSource === 'auto' && (
               <div className="photo-key-auto">
                 <span className="photo-key-icon">🔑</span>
@@ -141,21 +165,43 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Not on this device — upload or re-take */}
             {username && !autoHash && (
               <div className="auth-form">
                 <p className="step-description">
-                  No saved photo found on this device.<br/>
-                  Take a new photo or upload your original registration image.
+                  No saved photo found on this device.
                 </p>
-                <ImageKey
-                  onHash={(h) => { setImageHash(h || ''); setHashSource('manual'); }}
-                  onError={setError}
-                />
+
+                <div className="biometric-toggle" style={{marginBottom:'0.75rem'}}>
+                  <button type="button"
+                    className={`toggle-btn ${photoMode === 'upload' ? 'active' : ''}`}
+                    onClick={() => { setPhotoMode('upload'); setImageHash(''); setHashSource(''); }}>
+                    Upload photo
+                  </button>
+                  <button type="button"
+                    className={`toggle-btn ${photoMode === 'live' ? 'active' : ''}`}
+                    onClick={() => { setPhotoMode('live'); setImageHash(''); setHashSource(''); }}>
+                    Take live photo
+                  </button>
+                </div>
+
+                {photoMode === 'upload' ? (
+                  <ImagePicker
+                    onHash={(h) => { setImageHash(h); setHashSource('upload'); }}
+                    onError={setError}
+                    label="Upload your registration photo"
+                  />
+                ) : (
+                  <ImageCapture
+                    onHash={(h, dataUrl) => { setImageHash(h || ''); setHashSource('live'); }}
+                    onError={setError}
+                  />
+                )}
               </div>
             )}
 
             {!username && (
-              <p className="muted" style={{fontSize:'0.8rem',textAlign:'center'}}>
+              <p className="muted" style={{fontSize:'0.8rem', textAlign:'center'}}>
                 Enter your username to load your photo key
               </p>
             )}
@@ -169,17 +215,57 @@ export default function LoginPage() {
           </form>
         )}
 
+        {/* ── STEP 1: biometric (face or passkey) ── */}
         {step === 1 && (
           <div className="auth-form">
-            <p className="step-description">
-              <strong>Factor 2 — Face verification</strong><br />
-              Look at the camera to verify your identity.
-            </p>
-            <WebcamCapture onCapture={handleFaceCaptured} onError={setError} />
-            {loading && <p className="loading-text">Checking face…</p>}
+            {/* Passkey toggle if available */}
+            {hasPasskey && browserSupportsWebAuthn() && (
+              <div className="biometric-toggle">
+                <button
+                  className={`toggle-btn ${!usePasskey ? 'active' : ''}`}
+                  onClick={() => setUsePasskey(false)}
+                  type="button"
+                >
+                  Face scan
+                </button>
+                <button
+                  className={`toggle-btn ${usePasskey ? 'active' : ''}`}
+                  onClick={() => setUsePasskey(true)}
+                  type="button"
+                >
+                  Phone passkey
+                </button>
+              </div>
+            )}
+
+            {!usePasskey ? (
+              <>
+                <p className="step-description">
+                  <strong>Factor 2 — Face verification</strong><br />
+                  Look at the camera to verify your identity.
+                </p>
+                <WebcamCapture onCapture={handleFaceCaptured} onError={setError} />
+                {loading && <p className="loading-text">Checking face…</p>}
+              </>
+            ) : (
+              <>
+                <p className="step-description">
+                  <strong>Factor 2 — Phone passkey</strong><br />
+                  Use Face ID, Touch ID, or fingerprint on your device.
+                </p>
+                <div className="passkey-login-prompt">
+                  <span className="passkey-icon-large">📱</span>
+                  <button className="btn btn-primary btn-full"
+                    onClick={handlePasskeyLogin} disabled={loading}>
+                    {loading ? 'Verifying…' : 'Verify with passkey'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
+        {/* ── STEP 2: TOTP ── */}
         {step === 2 && (
           <form onSubmit={handleTotpVerify} className="auth-form">
             <p className="step-description">

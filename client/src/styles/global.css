@@ -827,36 +827,60 @@ input::placeholder { color: var(--text-dim); }
 .photo-key-info strong { font-size: 0.875rem; color: var(--text); }
 .photo-key-info span   { font-size: 0.775rem; color: var(--text-muted); }
 
-/* ── ImageKey tabs ── */
-.image-key-wrap { display: flex; flex-direction: column; gap: 0.75rem; }
-
-.image-key-tabs {
+/* ── Biometric toggle (face scan vs passkey) ── */
+.biometric-toggle {
   display: flex;
+  gap: 0;
   background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   padding: 3px;
-  gap: 3px;
+  margin-bottom: 1rem;
 }
-
-.image-key-tab {
+.toggle-btn {
   flex: 1;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  font-family: var(--font-sans);
+  padding: 0.55rem 0.75rem;
   border: none;
-  border-radius: calc(var(--radius-sm) - 2px);
-  cursor: pointer;
+  border-radius: calc(var(--radius) - 2px);
   background: transparent;
   color: var(--text-muted);
-  transition: all var(--transition);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.toggle-btn:hover:not(.active) {
+  color: var(--text);
 }
 
-.image-key-tab:hover { color: var(--text); }
+/* ── Passkey UI ── */
+.passkey-promo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(59,130,246,0.07);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  margin-bottom: 1rem;
+}
+.passkey-icon { font-size: 1.4rem; flex-shrink: 0; }
+.passkey-info { display: flex; flex-direction: column; gap: 0.15rem; flex: 1; }
+.passkey-info strong { font-size: 0.875rem; color: var(--text); }
+.passkey-info span   { font-size: 0.775rem; color: var(--text-muted); }
 
-.image-key-tab.active {
-  background: var(--bg-card);
-  color: var(--text);
-  box-shadow: 0 0 0 1px var(--border);
+.passkey-login-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.5rem 0;
+}
+.passkey-icon-large {
+  font-size: 3rem;
+  filter: grayscale(0.2);
 }

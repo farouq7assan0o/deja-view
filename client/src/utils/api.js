@@ -1,4 +1,4 @@
-const BASE = '/api';
+const BASE = 'http://localhost:3001/api';
 
 async function request(method, path, body, token) {
   const headers = { 'Content-Type': 'application/json' };
@@ -11,12 +11,19 @@ async function request(method, path, body, token) {
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+
+  if (!res.ok) {
+    const err = new Error(data.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+
   return data;
 }
 
+// Registration
 export const api = {
-  // ── REGISTER ──────────────────────────────────────────────
+  // --- REGISTER ---
   registerInit: (username, password, imageHash) =>
     request('POST', '/register/init', { username, password, imageHash }),
 
@@ -26,14 +33,9 @@ export const api = {
   registerSaveFace: (userId, faceDescriptor) =>
     request('POST', '/register/save-face', { userId, faceDescriptor }),
 
-  // ── LOGIN ─────────────────────────────────────────────────
-  // Step 0: get a one-time nonce from the server before sending image proof
-  getImageNonce: (username) =>
-    request('GET', `/login/nonce?username=${encodeURIComponent(username)}`),
-
-  // Step 1: send HMAC-SHA256(imageHash, nonce) — NOT the raw hash
-  loginVerifyImage: (username, imageResponse) =>
-    request('POST', '/login/verify-image', { username, imageResponse }),
+  // --- LOGIN ---
+  loginVerifyImage: (username, imageHash) =>
+    request('POST', '/login/verify-image', { username, imageHash }),
 
   loginVerifyFace: (faceDescriptor, partialToken) =>
     request('POST', '/login/verify-face', { faceDescriptor }, partialToken),
@@ -41,12 +43,26 @@ export const api = {
   loginVerifyTotp: (totpCode, partialToken) =>
     request('POST', '/login/verify-totp', { totpCode }, partialToken),
 
-  // ── USER ──────────────────────────────────────────────────
+  // --- USER ---
   getMe: (sessionToken) =>
     request('GET', '/user/me', null, sessionToken),
 
   getLoginHistory: (sessionToken) =>
     request('GET', '/user/login-history', null, sessionToken),
 
+  // --- PASSKEY ---
+  passkeyRegisterOptions: (userId) =>
+    request('POST', '/passkey/register-options', { userId }),
+
+  passkeyRegisterVerify: (userId, credential) =>
+    request('POST', '/passkey/register-verify', { userId, credential }),
+
+  passkeyLoginOptions: (partialToken) =>
+    request('POST', '/passkey/login-options', {}, partialToken),
+
+  passkeyLoginVerify: (credential, partialToken) =>
+    request('POST', '/passkey/login-verify', { credential }, partialToken),
+
+  // --- HEALTH ---
   health: () => request('GET', '/health'),
 };
